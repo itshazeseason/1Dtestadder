@@ -1,0 +1,78 @@
+module au_top (
+    input clk,              // 100MHz clock
+    input rst_n,            // reset button (active low)
+    output led [8],         // 8 user controllable LEDs
+    input usb_rx,           // USB->Serial input
+    output usb_tx,          // USB->Serial output
+    output io_led [3][8],   // LEDs on IO Shield
+    output io_seg [8],      // 7-segment LEDs on IO Shield
+    output io_sel [4],      // Digit select on IO Shield
+    input io_button [5],    // 5 buttons on IO Shield
+    input io_dip [3][8]     // DIP switches on IO Shield
+  ) {
+  
+  sig rst;                  // reset signal
+  sig trig;
+  
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+    
+    .rst(rst) {
+      //multi_seven_seg seg;
+      //multi_dec_ctr dec_ctr;
+    }
+  }
+
+  button_conditioner button(.clk(clk));
+  edge_detector edge_detector (#RISE(1), #FALL(0), .clk(clk)) ;
+
+  addertester tester( .clk(clk), .rst(rst));
+  
+//  counter ctr (#SIZE(28), #DIV(24), .clk(clk), .rst(rst));
+  decoder  displed2 (#WIDTH(3));       // 1 hot on testvec
+//  decoder  displed1 (#WIDTH(3));       // 1 hot on testvec
+  full_adder adder;
+  
+  always {
+    reset_cond.in = ~rst_n;   // input raw inverted reset signal
+    rst = reset_cond.out;     // conditioned reset
+    
+    led = c{3b0, io_button};  // connect buttons to LEDs
+    usb_tx = usb_rx;          // loop serial port
+    io_led = 3x{{8h00}};
+    io_led = io_dip;
+    io_seg = 8hff;          // turn segments off
+    io_sel = 4hf;           // select no digits    
+
+    //button[1] used as trigger, middle button
+    //button.in = io_button[1];
+    // All buttons used as trigger
+    button.in = io_button[0] | io_button[1] | io_button[2] | io_button[3] | io_button[4];
+    edge_detector.in = button.out;      //trigger
+    trig = edge_detector.out;
+        
+    io_seg = ~tester.seg;       // connect segments 
+    io_sel = ~tester.sel;       // connect digit select 
+
+    adder.a = tester.testvec[2];
+    adder.b = tester.testvec[1];
+    adder.cin = tester.testvec[0];
+
+// re-route adder output to io_dip and hardware loopback
+//    tester.testresult[1] = adder.s;
+//    tester.testresult[0] = adder.cout;
+    tester.testresult[1] = io_dip[0][1];    //B31  <--  B20 io_led[0][1] Sum
+    tester.testresult[0] = io_dip[0][0];    //B30  <--  B21 io_led[0][0] CarryOut
+    tester.trig = trig;
+    
+    displed2.in = tester.testvec;          //display test sequence on LED[2]
+    io_led[2] = displed2.out; 
+    
+    io_led[1][2:0] = tester.testvec;        // B6=A, B8=B, B9=Cin
+    io_led[0][1] = adder.s;
+    io_led[0][0] = adder.cout;
+  }
+
+}

@@ -1,0 +1,30 @@
+module addertester (
+    input clk,  // clock
+    input rst,  // reset
+    input trig,             // trigger input
+    output seg[7],          //7segLED segments
+    output sel[4],          //7segLED sel
+    output testvec[3],      //3 bit test vector: X, Y, Cin
+    input testresult[2]    //2 bit result input: Sum, Cout
+  ) {
+
+  display7seg disp(.clk(clk), .rst(rst));
+  checker test;
+  testctrl ctrl(.clk(clk), .rst(rst));
+  
+  always {
+    seg = disp.seg;
+    sel = disp.sel;
+    testvec = test.testvect;
+    
+    disp.dispmode = ctrl.runstatus;
+    disp.testvec = ctrl.testseq;
+    
+    test.teststep = ctrl.testseq;
+    test.testresult = testresult;
+    
+    ctrl.trig = trig;
+    ctrl.result = test.result;
+    
+  }
+}

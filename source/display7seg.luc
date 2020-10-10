@@ -1,0 +1,51 @@
+module display7seg (
+    input clk,  // clock
+    input rst,  // reset
+    output seg [7],            // LED segments
+    output sel [4],             // Digit select
+    input dispmode[2],         // display mode
+    input testvec[3]          // test vector value
+  ) {
+
+  const MODE_RDY = 2b00;
+  const MODE_PASS = 2b01;
+  const MODE_FAIL = 2b10;
+  const MODE_RUN = 2b11;
+
+  const DISP_P =  7b1110011;
+  const DISP_A =  7b1110111;
+  const DISP_S =  7b1101101;
+  const DISP_F =  7b1110001;
+  const DISP_I =  7b0110000;
+  const DISP_L =  7b0111000;
+  const DISP_R =  7b1010000;
+  const DISP_D =  7b1011110;
+  const DISP_Y =  7b1101110;
+  const DISP_T =  7b1111000;
+  
+  sig n[4];
+   
+  multi_seven_seg sevenseg(.clk(clk), .rst(rst));
+  seven_seg number;
+  
+  always {
+    seg = sevenseg.seg;
+    sel = sevenseg.sel;
+    sevenseg.digits = 4x{{7d0}};
+    // number.char = c{0, testvec};
+    n = c{0, testvec};
+    number.char = n + 1;
+    
+    case (dispmode) {
+      MODE_RDY:
+        sevenseg.digits = {7d0, DISP_R, DISP_D, DISP_Y};   
+      MODE_PASS:
+        sevenseg.digits = {DISP_P, DISP_A, DISP_S, DISP_S};   
+      MODE_FAIL:
+        sevenseg.digits = {DISP_F, DISP_A, DISP_I, DISP_L};   
+      MODE_RUN:
+        sevenseg.digits = {DISP_T, 7d0, 7d0, 7d0};  
+        sevenseg.digits[0] =  number.segs;
+    }
+  }
+}

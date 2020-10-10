@@ -1,0 +1,21 @@
+module checker (
+    input teststep[3],      // teststep
+    input testresult[2],
+    output testvect[3],
+    output result
+  ) {
+
+  testtable test;
+  full_adder adder;
+  
+  always {
+    test.in = teststep;
+    testvect = test.out;
+
+    adder.a = test.out[2];
+    adder.b = test.out[1];
+    adder.cin = test.out[0];
+    
+    result = ~( testresult[1] ^ adder.s ) &  ~( testresult[0] ^ adder.cout );   
+  }
+}

@@ -1,0 +1,67 @@
+module testctrl (
+    input clk,  // clock
+    input rst,  // reset
+    input trig,              // Start test
+    input result,            // test reult input
+    output runstatus[2],     // RDY, PASS, FAIL, TEST
+    output testseq[3]       //output test sequence
+//    output tickctrl          //run or keep timer in reset
+  ) {
+
+  sig tick;      //test tick
+  
+  const MODE_RDY = 2b00;
+  const MODE_PASS = 2b01;
+  const MODE_FAIL = 2b10;
+  const MODE_RUN = 2b11;
+  
+  dff status[2](#INIT(MODE_RDY), .clk(clk), .rst(rst));        //hold run status
+  dff vctr[3](#INIT(0), .clk(clk), .rst(rst));          //hold test sequence
+  dff run (#INIT(0), .clk(clk), .rst(rst));              //hold tickctr rst
+  counter tickctr(#SIZE(1), #DIV(26), .clk(clk));
+  edge_detector edge_detector (#RISE(1), #FALL(0), .clk(clk)) ;
+
+  fsm state(.clk(clk), .rst(rst)) = {IDLE, RUN};  
+      
+  always {
+    runstatus = status.q; 
+    testseq = vctr.q;
+
+    edge_detector.in = tickctr.value;
+    tick = edge_detector.out;
+    
+    run.d = run.q;
+    status.d = status.q;
+    vctr.d = vctr.q;
+
+    tickctr.rst = ~run.q;      //keep counter in reset
+    
+    case (state.q) {
+      state.IDLE:
+        if (trig == 1) {
+          run.d = 1;
+          status.d = MODE_RUN;
+          vctr.d = 3b0;
+          state.d = state.RUN;
+        }
+      state.RUN:
+        if (tick == 1) {
+          if (result == 1) {    //result good
+            if (vctr.q == 3b111) {
+              run.d = 0;
+              status.d = MODE_PASS;
+              vctr.d = 3b0;
+              state.d = state.IDLE;
+            } else {
+              vctr.d = vctr.q + 1;
+            }
+          } else {
+            run.d = 0;
+            status.d = MODE_FAIL;
+            vctr.d = 3b0;
+            state.d = state.IDLE;
+          }            
+        }
+    }  
+  }
+}
